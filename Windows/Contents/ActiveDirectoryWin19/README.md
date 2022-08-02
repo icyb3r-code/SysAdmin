@@ -1,5 +1,5 @@
 # Active Directory 2019
-Active Directory is A microsoft product that can be installed as a windows feature. This document will guide you, to how you can install AD on windows Server 2019 Standard Edition. 
+Active Directory is A Microsoft product that can be installed as a windows feature. This document will guide you, to how you can install AD on windows Server 2019 Standard Edition. 
 
 ## Prerequisites
 * Administrator Privilege 

@@ -6,9 +6,9 @@ This Repository contains  technical skills, tips, tricks,technical guide, servic
 
 For Linux System Administrators:
 
-* [Linux Sys Admins](./Linux/README.md)
+* [Linux System Administration](./Linux/README.md)
 
-For Windos System Administrator:
+For Windows System Administrator:
 
-* [Windwos Sys Admins](./Windows/README.md)
+* [Windows System Administration](./Windows/README.md)
 * 

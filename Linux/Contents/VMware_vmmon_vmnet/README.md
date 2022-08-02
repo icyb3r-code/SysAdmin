@@ -44,7 +44,7 @@ cp -v vmmon.tar vmnet.tar /usr/lib/vmware/modules/source/
 vmware-modconfig --console --install-all
 ```
 
-Now run your vmware guest, and enjoy.
+Now run your VMware guest, and enjoy.
 
 
 

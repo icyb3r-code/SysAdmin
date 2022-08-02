@@ -2,6 +2,6 @@
 
 List Of administration Topics:
 
-* [Active Directory on Win 2019 Installation configuration Guide](Contents/ActiveDirectoryWin2019/README.md)
+* [Active Directory 2019](Contents/ActiveDirectoryWin19/README.md)
+* [Active Directory 2022](Contents/ActiveDirectoryWin22/README.md)
 * 
-
