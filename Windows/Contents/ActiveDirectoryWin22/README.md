@@ -28,43 +28,54 @@ Click **Next**
 ![](attachments/Pasted%20image%2020220802132419.png)
 
 ## Step 3: Installation Type 
+
 Select **Role-based or feature-based installation** then click **Next**  :
 
 ![](attachments/Pasted%20image%2020220802132452.png)
 
 ## Step 4: Server Selection
+
 Select server you want to make it as and AD DC then Click **Next**
 
 ![](attachments/Pasted%20image%2020220802132543.png)
 
 ## Step 5: Server Roles:
+
 Active Directory needs a DNS server to work with, so we will install both them together so select first the **Active Directory Domain Services** then next select **DNS Server**: 
+
 ![](attachments/Pasted%20image%2020220802132643.png)
 
 ## Step 6: Add Features
+
 Once you select **Active Directory Domain Services** this window will appear for you to confirm the feature to add click **Add Features**:
 
 ![](attachments/Pasted%20image%2020220802132751.png)
+
 Once you select **DNS Server** this window will appear for you to confirm the feature to add click **Add Features**:
+
 ![](attachments/Pasted%20image%2020220802132837.png)
 
 ## Step 7 Select Features 
+
 Click **Next**:
 
 ![](attachments/Pasted%20image%2020220802132933.png)
 
 ## Step 8: AD DS (Domain Service )
+
 Click **Next**:
 
 ![](attachments/Pasted%20image%2020220802133016.png)
 
 ## Step 9: DNS Server
+
 Click **Next**:
 
 ![](attachments/Pasted%20image%2020220802133144.png)
 
 
 ## Step 10: Confirm your Selections
+
 Click **Install**:
 
 ![](attachments/Pasted%20image%2020220802133226.png)
@@ -74,6 +85,7 @@ The Installation is starting
 ![](attachments/Pasted%20image%2020220802133256.png)
 
 **Don't Close** this window once the installation finish check the **Step 11**:
+
 ![](attachments/Pasted%20image%2020220802134319.png)
 
 ## Step 11: Promote to DC 
@@ -114,12 +126,13 @@ Click **Install** if the Prerequisites check success:
 
 ![](attachments/Pasted%20image%2020220802140118.png)
 
-
-
 ## Step 12: DNS Reverse Lookup Zone
+
+We can create reverse DNS by below steps, Reverse DNS allow us to query the DNS using IP to get the Domain Name.
 
 ![](attachments/Pasted%20image%2020220802142100.png)
 
+Right Click on **Reverse Lookup Zones** then **New Zone**
 
 ![](attachments/Pasted%20image%2020220802142347.png)
 
@@ -130,6 +143,8 @@ Click **Install** if the Prerequisites check success:
 ![](attachments/Pasted%20image%2020220802142519.png)
 
 ![](attachments/Pasted%20image%2020220802142559.png)
+
+Here you can Enter the Network ID you want the DNS to Lookup up For:
 
 ![](attachments/Pasted%20image%2020220802142740.png)
 
