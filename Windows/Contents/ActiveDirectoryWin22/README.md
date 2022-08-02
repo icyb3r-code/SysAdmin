@@ -33,15 +33,19 @@ Select **Role-based or feature-based installation** then click **Next**  :
 ![](attachments/Pasted%20image%2020220802132452.png)
 
 ## Step 4: Server Selection
+
 Select server you want to make it as and AD DC then Click **Next**
 
 ![](attachments/Pasted%20image%2020220802132543.png)
 
 ## Step 5: Server Roles:
+
 Active Directory needs a DNS server to work with, so we will install both them together so select first the **Active Directory Domain Services** then next select **DNS Server**: 
+
 ![](attachments/Pasted%20image%2020220802132643.png)
 
 ## Step 6: Add Features
+
 Once you select **Active Directory Domain Services** this window will appear for you to confirm the feature to add click **Add Features**:
 
 ![](attachments/Pasted%20image%2020220802132751.png)
