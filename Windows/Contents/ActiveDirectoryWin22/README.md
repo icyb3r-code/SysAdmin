@@ -12,7 +12,7 @@ Below prerequisites that needed to proceed with this documentation:
 3. Set Static IP 
 4. Available Disk Space on Server
 
-> Note: If the server is on a Virtualization Environment you need to install the integrated tools on it for example vmware have VMware Tools, vbox have additional Guest
+> Note: If the server is on a Virtualization Environment you need to install the integrated tools on it for example vmware has VMware Tools, vbox has Guest Additions CD Image .. and so on
 
 
 ## Step 1: Open Server Manager 
