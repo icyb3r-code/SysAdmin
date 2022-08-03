@@ -8,7 +8,6 @@ For Linux System Administrators:
 
 * [Linux System Administration](./Linux/README.md)
 
-For Windows System Administrator:
+For Windows System Administrators:
 
 * [Windows System Administration](./Windows/README.md)
-* 
