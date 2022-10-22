@@ -20,11 +20,11 @@ There are many different implementations of the DNS system today. Each DNS serve
 
 ## Lab Environment
 
-DNS Server OS: Oracle linux 9
-DNS software: Bind9
-DNS IP Addr: 10.10.2.134/24
-DNS Network: 10.10.2.0/24
-Windows Server: 10.10.2.131
+- DNS Server OS: Oracle linux 9
+- DNS software: Bind9
+- DNS IP Addr: 10.10.2.134/24
+- DNS Network: 10.10.2.0/24
+- Windows Server: 10.10.2.131
 
 ## Cheat-Sheet 
 
