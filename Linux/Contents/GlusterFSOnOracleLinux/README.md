@@ -4,11 +4,41 @@
 
 ## Table Of Contents
 
-```toc
-style: bullet
-min_depth: 1
-max_depth: 6
-```
+- [GlusterFS Server Side Setup](#glusterfs-server-side-setup)
+  * [Introduction](#introduction)
+  * [Set Hostname](#set-hostname)
+  * [Enable GlusterFS Package](#enable-glusterfs-package)
+  * [Install GlusterFS](#install-glusterfs)
+  * [Format Disks](#format-disks)
+  * [Create Directory](#create-directory)
+  * [Add The Mount to FSTAB](#add-the-mount-to-fstab)
+  * [Mount the Disk](#mount-the-disk)
+  * [Add Hostnames To Hostfile](#add-hostnames-to-hostfile)
+  * [Enable/Start GlusterFS Service](#enable-start-glusterfs-service)
+  * [Allow GlusterFS on Firewall](#allow-glusterfs-on-firewall)
+  * [Create Trusted Storage Pool](#create-trusted-storage-pool)
+  * [Show Peer Status](#show-peer-status)
+  * [List Storage Pool](#list-storage-pool)
+  * [Create Volume](#create-volume)
+  * [Start Volume](#start-volume)
+  * [Show Volume Info](#show-volume-info)
+- [Client Side Setup](#client-side-setup)
+  * [Enable GlusterFS Package](#enable-glusterfs-package-1)
+  * [Install GlusterFS Client](#install-glusterfs-client)
+  * [Create Directory](#create-directory-1)
+  * [Add Hostnames To Hostfile](#add-hostnames-to-hostfile-1)
+  * [Mount GlusterFS Volume](#mount-glusterfs-volume)
+  * [Set Permissions](#set-permissions)
+  * [Add The Mount to FSTAB](#add-the-mount-to-fstab-1)
+  * [Touch File](#touch-file)
+  * [Check GlusterFS Nodes](#check-glusterfs-nodes)
+- [Delete Volume](#delete-volume)
+  * [Check Volume Mount Point on Clients](#check-volume-mount-point-on-clients)
+  * [Umount Volume On all Clients](#umount-volume-on-all-clients)
+  * [Stop Volume](#stop-volume)
+  * [Delete Volume](#delete-volume-1)
+  * [Confirm Volume Deletion](#confirm-volume-deletion)
+
 
 ## GlusterFS Server Side Setup
 
