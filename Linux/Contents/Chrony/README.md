@@ -1,224 +1,284 @@
-#    Chrony
+# Chrony — Local NTP Time Server
 
-## Intro
+## Table of Contents
 
-Chrony is a flexible implementation of the Network Time Protocol (NTP). its used to synchronized the system clock from different NTP servers, reference clock or via manual input. It  also can be used NTPv4 server to provide time service to other servers in the same network.
+- [Introduction](#introduction)
+- [Components](#components)
+- [Installation](#installation)
+- [timedatectl Reference](#timedatectl-reference)
+- [Server Configuration](#server-configuration)
+- [Client Configuration](#client-configuration)
+- [Useful Commands](#useful-commands)
 
-Chrony performs well in a wide range of conditions, including intermittent  network connections, heavily congested networks, changing temperatures  (ordinary computer clocks are sensitive to temperature), and systems  that do not run continuously, or run on a virtual machine.
+---
 
-**Comparison** between chrony and NTP can be found here in the [link](https://chrony.tuxfamily.org/comparison.html) , and for Chrony full **Documentation** check this [link](https://chrony.tuxfamily.org/documentation.html) .
+## Introduction
 
-## Structure
+Chrony is a flexible implementation of the **Network Time Protocol (NTP)**. It synchronizes the system clock from NTP servers, reference clocks, or manual input. It can also act as an **NTPv4 server**, providing time services to other hosts on the same network.
 
-Chrony consists of `chronyd, chronyc, chrony.conf` 
+Chrony performs well across a wide range of conditions:
 
-* `chrony.conf` file locate on `/etc/` or `/etc/chrony/` directory  
-* `chronyd` is a daemon process that run as service to 
-* `chronyc` is a tool to monitor and control the `chronyd` process 
+- Intermittent or congested network connections
+- Systems with changing temperatures (hardware clocks are temperature-sensitive)
+- Systems that do not run continuously or run inside virtual machines
 
-## Installation 
+**References:**
+- [Chrony vs NTP Comparison](https://chrony.tuxfamily.org/comparison.html)
+- [Chrony Full Documentation](https://chrony.tuxfamily.org/documentation.html)
+
+---
+
+## Components
+
+Chrony consists of three main components:
+
+| Component    | Description                                                                 |
+|--------------|-----------------------------------------------------------------------------|
+| `chronyd`    | The daemon process that runs as a background service                        |
+| `chronyc`    | CLI tool to monitor and control the `chronyd` process                       |
+| `chrony.conf`| Main configuration file, located at `/etc/chrony.conf` or `/etc/chrony/`   |
+
+> A single `chrony.conf` file configures the host as **both a client and a server**. No separate configuration file is needed for each role.
+
+---
+
+## Installation
+
+**Debian / Ubuntu:**
 
 ```bash
-$ sudo apt install chrony 
+sudo apt install -y chrony
 ```
 
-
-
-## TimeDateCTL
-
-The `timedatectl` command is using to set the date, time, timezone, enable and disable features such as NTP sync and HW clock.
+**RHEL / CentOS / Oracle Linux / Fedora:**
 
 ```bash
-# this command show the date and current configuration for time and date 
-$ timedatectl 
-
-# Sync Time to NIST Atomic Clock
-$ timedatectl set–ntp yes 
-$ timedatectl set-ntp no
-
-# Change the Time Note time format should be in HH:MM:SS (Hours, Minutes, Seconds)
-$ timedatectl set–time 21:45:53
-# Change the Date, should be formatted as YYYY-MM-DD (Year, Month, and Day
-$ timedatectl set–time 2019-04-10
-
-# Set a Timezone
-$ timedatectl list-timezones
-$ timedatectl set–timezone Region/Location
-
-# Set Universal Time
-$ timedatectl set–timezone UTC
-
-# Sync Hardware Clock
-# RTC stands for Real-Time Clock, another name for the hardware clock in your computer. Your system has a tiny quartz crystal and a battery that keeps time at times when the system disconnects from a network.
-$ timedatectl set-local-rtc 1 # this local time zone 
-$ timedatectl set-local-rtc 0 # UTC
-
-
+sudo dnf install -y chrony
 ```
 
-
-
-## Sever Configuration 
-
-he nice thing about the Chrony configuration file is that this single  file configures the host as both a client and a server. To add a server  function to our host—it will always be a client, obtaining its time from a reference server—we just need to make a couple of changes to the  Chrony configuration, then configure the host's firewall to accept NTP  requests.
+**Enable and start the service:**
 
 ```bash
-# ubuntu Firewall ufw.serive
-systemctl stop ufw.serivce 
+sudo systemctl enable --now chronyd
+systemctl status chronyd
 ```
 
+---
 
+## timedatectl Reference
+
+`timedatectl` is a system utility for managing date, time, timezone, NTP sync, and hardware clock settings.
 
 ```bash
-# Welcome to the chrony configuration file. See chrony.conf(5) for more
-# information about usuable directives.
+# Show current date, time, and sync status
+timedatectl
 
-# This will use (up to):
-# - 4 sources from ntp.ubuntu.com which some are ipv6 enabled
-# - 2 sources from 2.ubuntu.pool.ntp.org which is ipv6 enabled as well
-# - 1 source from [01].ubuntu.pool.ntp.org each (ipv4 only atm)
-# This means by default, up to 6 dual-stack and up to 2 additional IPv4-only
-# sources will be used.
-# At the same time it retains some protection against one of the entries being
-# down (compare to just using one of the lines). See (LP: #1754358) for the
-# discussion.
-#
-# About using servers from the NTP Pool Project in general see (LP: #104525).
-# Approved by Ubuntu Technical Board on 2011-02-08.
-# See http://www.pool.ntp.org/join.html for more information.
-#pool ntp.ubuntu.com        iburst maxsources 4
-#pool 0.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 1.ubuntu.pool.ntp.org iburst maxsources 1
-#pool 2.ubuntu.pool.ntp.org iburst maxsources 2
+# Enable or disable NTP synchronization
+timedatectl set-ntp yes
+timedatectl set-ntp no
+
+# Set the system time manually (HH:MM:SS)
+# Note: NTP must be disabled first
+timedatectl set-ntp no
+timedatectl set-time 21:45:53
+
+# Set the system date manually (YYYY-MM-DD)
+timedatectl set-time 2019-04-10
+
+# List available timezones
+timedatectl list-timezones
+
+# Set a timezone
+timedatectl set-timezone Region/Location
+
+# Set timezone to UTC
+timedatectl set-timezone UTC
+
+# Sync hardware clock (RTC) to local time or UTC
+# RTC = Real-Time Clock (hardware clock, battery-backed)
+timedatectl set-local-rtc 1   # use local timezone
+timedatectl set-local-rtc 0   # use UTC (recommended)
+```
+
+---
+
+## Server Configuration
+
+To serve time to other hosts on the network, configure `chrony.conf` to point to an upstream time source and allow client access from the local subnet. Then open the firewall for NTP traffic (UDP port 123).
+
+### Firewall
+
+**Ubuntu (ufw):**
+
+```bash
+sudo ufw allow 123/udp
+sudo ufw reload
+```
+
+**RHEL / Oracle Linux (firewalld):**
+
+```bash
+sudo firewall-cmd --add-service=ntp --permanent
+sudo firewall-cmd --reload
+```
+
+### /etc/chrony/chrony.conf (Server)
+
+```bash
+# Upstream NTP server (replace with your preferred source or upstream NTP server)
+# iburst: send a burst of packets on startup for faster initial sync
+# prefer: mark this as the preferred source
 server 10.10.20.153 iburst prefer
 
-# This directive specify the location of the file containing ID/key pairs for
-# NTP authentication.
+# Key file for NTP authentication
 keyfile /etc/chrony/chrony.keys
 
-# This directive specify the file into which chronyd will store the rate
-# information.
+# File to store clock drift rate
 driftfile /var/lib/chrony/chrony.drift
 
-# Uncomment the following line to turn logging on.
-#log tracking measurements statistics
-
-# Log files location.
+# Log directory
 logdir /var/log/chrony
 
-# Stop bad estimates upsetting machine clock.
+# Protect against large clock adjustments from bad sources
 maxupdateskew 100.0
 
-# This directive enables kernel synchronisation (every 11 minutes) of the
-# real-time clock. Note that it can’t be used along with the 'rtcfile' directive.
+# Sync hardware RTC clock every 11 minutes (cannot be used with 'rtcfile')
 rtcsync
 
-# Step the system clock instead of slewing it if the adjustment is larger than
-# one second, but only in the first three clock updates.
+# Step the clock (instead of slewing) if offset > 1 second, but only on first 3 updates
 makestep 1 3
 
+# Act as a local stratum 10 server if upstream is unreachable
+# (stratum 10 indicates a local fallback, not a primary source)
 local stratum 10
 
-allow 10.10.20.0/24 
+# Allow NTP client access from this subnet
+allow 10.10.20.0/24
 ```
 
-
-
-
-
-## Client configuration 
-
-The NTP client configuration is simple and requires little or no  intervention. The NTP server can be defined during the Linux  installation or provided by the DHCP server at boot time. The default  `/etc/chrony.conf` file (shown below in its entirety) requires no intervention to work  properly as a client. For Fedora, Chrony uses the Fedora NTP pool, and  CentOS and RHEL have their own NTP server pools. Like many Red Hat-based distributions, the configuration file is well commented.
+**Restart and verify:**
 
 ```bash
-# Use public servers from the pool.ntp.org project.
-# Please consider joining the pool (http://www.pool.ntp.org/join.html).
-pool 2.fedora.pool.ntp.org iburst
+sudo systemctl restart chronyd
+chronyc sources -v
+chronyc tracking
+```
 
-# Record the rate at which the system clock gains/losses time.
+---
+
+## Client Configuration
+
+The client configuration requires only pointing to the NTP server. The default config file works with no changes for most distros — simply replace the default pool with your internal server.
+
+### /etc/chrony.conf (Client — RHEL/Fedora based)
+
+```bash
+# Internal NTP server
+server 10.10.20.153 iburst
+
+# Record the rate at which the system clock gains/loses time
 driftfile /var/lib/chrony/drift
 
-# Allow the system clock to be stepped in the first three updates
-# if its offset is larger than 1 second.
+# Step the clock if offset > 1 second, only on first 3 updates
 makestep 1.0 3
 
-# Enable kernel synchronization of the real-time clock (RTC).
+# Enable kernel synchronization of the hardware RTC
+rtcsync
 
-
-# Enable hardware timestamping on all interfaces that support it.
+# Enable hardware timestamping on all interfaces that support it
 #hwtimestamp *
 
-# Increase the minimum number of selectable sources required to adjust
-# the system clock.
+# Minimum number of selectable sources required to adjust the system clock
 #minsources 2
 
-# Allow NTP client access from local network.
-#allow 192.168.0.0/16
-
-# Serve time even if not synchronized to a time source.
-#local stratum 10
-
-# Specify file containing keys for NTP authentication.
+# Key file for NTP authentication
 keyfile /etc/chrony.keys
 
-# Get TAI-UTC offset and leap seconds from the system tz database.
+# Get TAI-UTC offset and leap seconds from the system tz database
 leapsectz right/UTC
 
-# Specify directory for log files.
+# Log directory
 logdir /var/log/chrony
 
-# Select which information is logged.
+# Select which information is logged
 #log measurements statistics tracking
 ```
 
+### Force Immediate Sync
 
-
-Force Server time to client run below command:
+Use this to force a one-time sync without starting the service:
 
 ```bash
-# 
 chronyd -q "server 10.10.20.153 iburst"
-# OR
-systemctl restart chronyd.serivce
 ```
 
-
-
-After my client computers have synchronized with the NTP server, I like  to set the system hardware clock from the system (OS) time by using the  following command:
+Or restart the service to trigger re-sync:
 
 ```bash
-$ /sbin/hwclock --systohc
+sudo systemctl restart chronyd
 ```
 
+### Sync Hardware Clock from System Time
 
-
-## Server Commands 
+After the system clock is synchronized, update the hardware (RTC) clock:
 
 ```bash
-$ date 
-Sat 27 Feb 2021 09:11:57 PM UTC
-
-# stop Chrony service
-$ systemctl stop chrony.service 
-$ timedatectl set-ntp no
-$ timedatectl set-time 21:18:25
-$ timedatectl set-ntp yes
-$ systemctl start chrony.service 
-$ date 
-
+sudo /sbin/hwclock --systohc
 ```
 
+---
 
+## Useful Commands
 
-## Client Commands 
+### Server-Side
 
 ```bash
-$ nano /etc/chrony/chrony.conf
-$ date 
-$ chronyc sources -v 
-# check the time difference between the client and server
-$ watch chronyc tracking 
+# Check current date and time
+date
+
+# Manually set time (stop NTP, set time, re-enable NTP)
+systemctl stop chronyd
+timedatectl set-ntp no
+timedatectl set-time 21:18:25
+timedatectl set-ntp yes
+systemctl start chronyd
+date
 ```
 
+### Client-Side
 
+```bash
+# Edit the client chrony configuration
+vim /etc/chrony/chrony.conf
 
+# Check current date and time
+date
+
+# List NTP sources with verbose detail
+chronyc sources -v
+
+# Monitor time tracking in real-time (offset, frequency, skew)
+watch chronyc tracking
+
+# Show brief tracking summary
+chronyc tracking
+
+# Show activity (sources being used)
+chronyc activity
+```
+
+### chronyc tracking — Key Fields
+
+| Field              | Description                                              |
+|--------------------|----------------------------------------------------------|
+| `Reference ID`     | The NTP source currently being used                      |
+| `Stratum`          | Distance from a primary time source (lower = better)     |
+| `System time`      | Current offset between system clock and NTP source       |
+| `Last offset`      | Clock offset at the last update                          |
+| `RMS offset`       | Long-term average offset                                 |
+| `Frequency`        | Rate at which the system clock gains/loses time (ppm)    |
+| `Residual freq`    | Remaining frequency error                                |
+| `Skew`             | Estimated error bound on the frequency                   |
+| `Root delay`       | Total network path delay to the primary source           |
+| `Root dispersion`  | Total dispersion accumulated to the primary source       |
+| `Leap status`      | Whether a leap second is pending                         |
