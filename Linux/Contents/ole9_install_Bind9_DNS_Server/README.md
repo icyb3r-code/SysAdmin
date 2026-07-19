@@ -1,58 +1,85 @@
 # Bind9 DNS Server
 
-## Introduction 
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Lab Environment](#lab-environment)
+- [Cheat Sheet](#cheat-sheet)
+- [Step-1: Customize OS](#step-1-customize-os)
+- [Step-2: Install Bind Utilities](#step-2-install-bind-utilities)
+- [Step-3: Configure DNS Server](#step-3-configure-dns-server-namedconf)
+- [Step-4: Create Zones](#step-4-create-zones)
+- [Step-5: Configure Forward Zone](#step-5-configure-forward-zone)
+- [Step-6: Configure Reverse Zone](#step-6-configure-reverse-zone)
+- [Step-7: Validate Configurations](#step-7-validate-configurations)
+- [Step-8: Enable Chroot Environment](#step-8-enable-chroot-environment)
+- [Step-9: Allow DNS on Firewall](#step-9-allow-dns-on-firewall)
+- [Step-10: Put DNS in Action](#step-10-put-dns-in-action)
+- [Step-11: Add A Record](#step-11-add-a-record)
+- [Step-12: Start/Stop DNS](#step-12-startstop-dns)
+
+---
+
+## Introduction
 
 **What is DNS?**
 
-DNS stands for Domain Name System. in shorts DNS is a Distributed Database system that is used to associate host names with their respective IP addresses. 
+DNS stands for Domain Name System. In short, DNS is a distributed database system used to associate hostnames with their respective IP addresses.
 
-![](attachments/Pasted%20image%2020220919181305.png)
+![DNS Diagram][def]
 
 **Available DNS Software**
 
-There are many different implementations of the DNS system today. Each DNS server represents a different implementation of characteristics, such as the interface, platform support, packaging and additional features.
+There are many different DNS server implementations, each differing in interface, platform support, packaging, and additional features:
 
-* BIND
-* PowerDNS
-* Unbound
-* Dnsmasq
-* MaraDNS
+| Software   | Description                              |
+|------------|------------------------------------------|
+| BIND       | The most widely used DNS software        |
+| PowerDNS   | Feature-rich with database backends      |
+| Unbound    | Focused on validation and security       |
+| Dnsmasq    | Lightweight DNS/DHCP for small networks  |
+| MaraDNS    | Simple, security-focused DNS server      |
+
+---
 
 ## Lab Environment
 
-- DNS Server OS: Oracle linux 9
-- DNS software: Bind9
-- DNS IP Addr: 10.10.2.134/24
-- DNS Network: 10.10.2.0/24
-- Windows Server: 10.10.2.131
+| Component       | Value              |
+|-----------------|--------------------|
+| DNS Server OS   | Oracle Linux 9     |
+| DNS Software    | Bind9              |
+| DNS IP Address  | 10.10.2.134/24     |
+| DNS Network     | 10.10.2.0/24       |
+| Windows Server  | 10.10.2.131        |
 
-## Cheat-Sheet 
+---
 
-You can find below the steps in-short, for more details skip this part and follow the detailed steps.
+## Cheat Sheet
+
+A condensed reference for all steps. For full details, follow the step-by-step sections below.
 
 ```bash
-
 #################################
-### Set Host and Domain Name
+### Set Hostname and Domain Name
 #################################
 
-hostnamectl 
+hostnamectl
 hostnamectl set-hostname dnssrv.lab.com
 hostname -s
-hostname -d 
+hostname -d
 hostname -f
 
 #################################
-### Set Static IP Addr
+### Set Static IP Address
 #################################
 
-## Oracle Linux 8/7
+# Oracle Linux 7/8
 sudo vim /etc/sysconfig/network-scripts/ifcfg-ens160
 
-# Change this 
+# Change this:
 BOOTPROTO=none
 
-# Add below
+# Add below:
 ONBOOT=yes
 IPADDR=10.10.2.134
 PREFIX=24
@@ -60,10 +87,10 @@ GATEWAY=10.10.2.2
 DNS1=10.10.2.2
 DNS2=10.10.2.134
 
-## Oracle Linux 9
+# Oracle Linux 9
 sudo vim /etc/NetworkManager/system-connections/ens160.nmconnection
 
-# add below lines 
+# Add below lines:
 [ipv4]
 address1=10.10.2.134/24,10.10.2.2
 dns=10.10.2.2;10.10.2.134;
@@ -85,39 +112,34 @@ export TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 systemctl stop named
 systemctl disable named
 
-# backup the file 
 cp -p /etc/named.conf /etc/named.conf.bkp_$TIMESTAMP
-
 vim /etc/named.conf
 
-# Edit below lines
+# Edit below lines:
 listen-on port 53 { 127.0.0.1; 10.10.2.134; };
 allow-query     { localhost; 10.10.2.0/24; };
 
-# validate the named.conf file 
-named-checkconf 
+named-checkconf
 
 #################################
 ### Create Zones
 #################################
 
-# Backup zones file 
 su - root
 export TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
-cp -p /etc/named.rfc1912.zones /etc/named.rfc1912.zones.bkp_$TIMESTAMP  
+cp -p /etc/named.rfc1912.zones /etc/named.rfc1912.zones.bkp_$TIMESTAMP
 
-# Edit the file 
-vim /etc/named.rfc1912.zones 
+vim /etc/named.rfc1912.zones
 
-# add below zones to end of the file
-//forward zone
+# Add below zones to end of the file:
+// forward zone
 zone "lab.com" IN {
      type master;
      file "lab.com.zone";
      allow-update { none; };
      allow-query { any; };
 };
-//backward zone or reverse zone
+// backward/reverse zone
 zone "2.10.10.in-addr.arpa" IN {
      type master;
      file "2.10.10.in-addr.arpa.zone";
@@ -126,16 +148,13 @@ zone "2.10.10.in-addr.arpa" IN {
 };
 
 #################################
-### Create Forward Zone file
+### Create Forward Zone File
 #################################
 
 cd /var/named
 cp -p named.loopback lab.com.zone
-# -p to preserve the mode and ownership 
-
-# chown root:named lab.com.zone
 vim lab.com.zone
-## edit the file to be like below 
+
 $TTL 1D
 @       IN SOA  lab.com.         root.lab.com (
                                         0       ; serial
@@ -147,17 +166,13 @@ $TTL 1D
 localhost       IN A    127.0.0.1
 dnssrv          IN A    10.10.2.134
 
-
-
 #################################
 ### Create Backward/Reverse Zone
 #################################
 
 cp -p named.localhost 2.10.10.in-addr.arpa.zone
-#chown root:named 2.10.10.in-addr.arpa.zone
 vim 2.10.10.in-addr.arpa.zone
 
-## Edit the file to be like below 
 $TTL 1D
 @       IN SOA  lab.com.        root.lab.com. (
                                         0       ; serial
@@ -168,41 +183,31 @@ $TTL 1D
                 IN NS   localhost.
 134             IN PTR  dnssrv.lab.com.
 
-
 #################################
 ### Validate Configuration
 #################################
 
-# check configuration file
 named-checkconf
-# for chroot named file if activated
+
+# For chroot named file if activated:
 mkdir /var/named/chroot/usr/lib64/named
 named-checkconf -t /var/named/chroot/ etc/named.conf
 
-# check backward/reverse zone file
 named-checkzone 127.0.0.1 /var/named/2.10.10.in-addr.arpa.zone
-
-# check forwared zone file
 named-checkzone dnssrv /var/named/lab.com.zone
 
 #################################
-### Enable chroot Jail Env
+### Enable Chroot Jail Environment
 #################################
 
-# check the chroot 
- mount | grep chroot
-
-# Enable chroot 
- /usr/libexec/setup-named-chroot.sh /var/named/chroot on
-
-# check chroot if enabled 
- mount | grep chroot
+mount | grep chroot
+/usr/libexec/setup-named-chroot.sh /var/named/chroot on
+mount | grep chroot
 
 #################################
-### Start named-chroot service
+### Start named-chroot Service
 #################################
 
-# Start service
 systemctl start named-chroot
 systemctl status named-chroot
 
@@ -210,220 +215,203 @@ systemctl status named-chroot
 ### Allow DNS on Firewall
 #################################
 
-# check if ports are listening 
 ss -anl | grep ":53 "
-
-# add port 53 udp/tcp to firewall
-firewall-cmd  --add-port=53/tcp --add-port=53/udp --permanent
-
-# List ports 
+firewall-cmd --add-port=53/tcp --add-port=53/udp --permanent
 firewall-cmd --list-ports
-
-# Apply the changes 
 firewall-cmd --reload
-
-# List ports 
 firewall-cmd --list-ports
 
 #################################
 ### Put DNS in Action
 #################################
 
-# on DNS server locally add below to resolv.conf
+# On DNS server, add to resolv.conf:
 vim /etc/resolv.conf
 nameserver 10.10.2.134
 
-# On windows add DNS to network adapter IPv4
-10.10.2.134
-
-# show advanced TCP/IP settings append DNS suffix
-lab.com 
+# On Windows, set DNS in network adapter IPv4:
+# DNS: 10.10.2.134
+# Append DNS suffix: lab.com
 
 #################################
 ### Add DNS Record
 #################################
 
-# Open zone file to edit 
 vim /var/named/lab.com.zone
+# Add: win-sqldb01     IN A    10.10.2.131
 
-# add below record 
-win-sqldb01     IN A    10.10.2.131
-
-# Open Reverse zone file to edit 
 vim /var/named/2.10.10.in-addr.arpa.zone
+# Add: 131             IN PTR  win-sqldb01.lab.com.
 
-# add below record 
-win-sqldb01     IN A    10.10.2.131
-
-# restart the server 
 systemctl restart named-chroot
 
-# Test from both DNS and Windows Server sides
 nslookup win-sqldb01
 nslookup 10.10.2.131
 
 #################################
-### Stop/Start DNS Service 
+### Stop/Start DNS Service
 #################################
 
-# stop service
+# Stop:
 systemctl stop named-chroot
-systemctl status named-chroot
-
-# disable the chroot jail env
 /usr/libexec/setup-named-chroot.sh /var/named/chroot off
 mount | grep chroot
 
-##  Start Service 
-
-# enable chroot jail env 
+# Start:
 /usr/libexec/setup-named-chroot.sh /var/named/chroot on
 mount | grep chroot
-
-# Start service
 systemctl start named-chroot
 systemctl status named-chroot
-
 ```
+
+---
 
 ## Step-1: Customize OS
 
-```bash
-## Set Proper server name and domain name
+Set the server hostname, domain name, and a static IP address before installing Bind.
 
-# check the hostname configuration
+```bash
+# Check current hostname configuration
 hostnamectl
 
-# set hostname and domain
+# Set hostname and domain
 hostnamectl set-hostname dnssrv.lab.com
 
-## Set Static IP 
+# Verify
+hostname -s   # short name
+hostname -d   # domain name
+hostname -f   # fully qualified domain name
 
-#show the available networks
-ip a show 
+# Show network interfaces
+ip a show
+```
 
-# make sure to make it static like below output
-# Oracle linux 7/8
+**Oracle Linux 7/8 — Static IP via ifcfg:**
+
+```bash
 sudo vim /etc/sysconfig/network-scripts/ifcfg-ens160
 
-# Change this 
+# Change this:
 BOOTPROTO=none
 
-# Add below
+# Add below:
 ONBOOT=yes
 IPADDR=10.10.2.134
 PREFIX=24
 GATEWAY=10.10.2.2
 DNS1=10.10.2.2
+```
 
-# Oracle Linux 9
+**Oracle Linux 9 — Static IP via NetworkManager:**
 
-# edit below file using vim 
+```bash
 sudo vim /etc/NetworkManager/system-connections/ens160.nmconnection
 
-# add below lines 
+# Add below lines:
 [ipv4]
 address1=10.10.2.134/24,10.10.2.2
 dns=10.10.2.2;
 method=manual
 ```
 
+---
 
 ## Step-2: Install Bind Utilities
 
-Install the bind package.
+Install the `bind` and `bind-chroot` packages.
 
 ```bash
 sudo dnf install -y bind bind-chroot
 rpm -aq | grep bind
 ```
 
-Important files and directories good to know about, before we get stated:
+**Key files and directories:**
 
-```bash
-# main configuration File 
-/etc/named.conf 
+| Path                         | Description                                                   |
+|------------------------------|---------------------------------------------------------------|
+| `/etc/named.conf`            | Main configuration file                                       |
+| `/etc/named/`                | Auxiliary directory for included configuration files          |
+| `/etc/named.rfc1912.zones`   | Forward and reverse zone definitions                          |
+| `/var/named/`                | Zone data files                                               |
+| `/var/named/chroot/`         | Chroot jail environment for Bind                              |
 
-# An auxiliary Direcotry for configuration file that are included in the man configuration file
-/etc/named/
-
-# File contains the Forward and Reverse Zones file names and configurations
-/etc/named.rfc1912.zones
-
-# conatins the zones files 
-/var/named/
-
-# Contains the jailed environment for bind DNS
-/var/named/chroot/
-```
-
+---
 
 ## Step-3: Configure DNS Server (named.conf)
 
-This file holds the bind configuration, which affect the service 
+The `named.conf` file controls the core Bind service behavior.
 
 ```bash
+su - root
 export TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 systemctl stop named
 systemctl disable named
 
-# backup the file 
+# Backup the original file
 cp -p /etc/named.conf /etc/named.conf.bkp_$TIMESTAMP
 
 vim /etc/named.conf
 
-# Edit below lines
+# Edit these lines to match your environment:
 listen-on port 53 { 127.0.0.1; 10.10.2.134; };
 allow-query     { localhost; 10.10.2.0/24; };
 
-# validate the named.conf file 
-named-checkconf 
-
+# Validate the configuration
+named-checkconf
 ```
 
-## Step-4: Create Zones
-Next create the DNS zone entries in the file `/etc/named.rfc1912.zones.`This is where you will configure the forward and reverse zones.
+---
 
->You can add the zones in named.conf file in sake of keeping everything organized better to place them in `named.rfc1912.zones`  file.
+## Step-4: Create Zones
+
+Define forward and reverse zones in `/etc/named.rfc1912.zones`.
+
+> **Note:** You could add zones directly to `named.conf`, but placing them in `named.rfc1912.zones` keeps the configuration better organized.
 
 ```bash
-# Backup zones file
 su - root
 export TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
-cp -p /etc/named.rfc1912.zones /etc/named.rfc1912.zones.bkp_$TIMESTAMP  
+cp -p /etc/named.rfc1912.zones /etc/named.rfc1912.zones.bkp_$TIMESTAMP
 
-# Edit the file 
-vim /etc/named.rfc1912.zones 
+vim /etc/named.rfc1912.zones
 
-# add below zones to end of the file
-//forward zone
+# Append the following zones at the end of the file:
+
+// forward zone
 zone "lab.com" IN {
      type master;
      file "lab.com.zone";
      allow-update { none; };
      allow-query { any; };
 };
-//backward zone or reverse zone
+
+// backward/reverse zone
 zone "2.10.10.in-addr.arpa" IN {
      type master;
      file "2.10.10.in-addr.arpa.zone";
      allow-update { none; };
      allow-query { any; };
 };
-
 ```
+
+---
 
 ## Step-5: Configure Forward Zone
 
+The forward zone resolves hostnames to IP addresses.
+
 ```bash
-
 cd /var/named
-cp -p named.loopback lab.com.zone
-# -p to preserve the mode and ownership 
 
-# chown root:named lab.com.zone
+# Copy the loopback template, preserving permissions and ownership
+cp -p named.loopback lab.com.zone
+
 vim lab.com.zone
-## edit the file to be like below 
+```
+
+Edit the file to match the following:
+
+```dns
 $TTL 1D
 @       IN SOA  lab.com.         root.lab.com (
                                         0       ; serial
@@ -436,13 +424,22 @@ localhost       IN A    127.0.0.1
 dnssrv          IN A    10.10.2.134
 ```
 
+---
+
 ## Step-6: Configure Reverse Zone
 
-```bash
-cp -p named.localhost 2.10.10.in-addr.arpa.zone
-vim 2.10.10.in-addr.arpa.zone
+The reverse zone resolves IP addresses back to hostnames (PTR records).
 
-## Edit the file to be like below 
+```bash
+cd /var/named
+cp -p named.localhost 2.10.10.in-addr.arpa.zone
+
+vim 2.10.10.in-addr.arpa.zone
+```
+
+Edit the file to match the following:
+
+```dns
 $TTL 1D
 @       IN SOA  lab.com.        root.lab.com. (
                                         0       ; serial
@@ -454,121 +451,145 @@ $TTL 1D
 134             IN PTR  dnssrv.lab.com.
 ```
 
+---
+
 ## Step-7: Validate Configurations
 
+Check all configuration and zone files for syntax errors before starting the service.
+
 ```bash
-# check configuration file
+# Validate the main configuration file
 named-checkconf
-# for chroot named file
+
+# For chroot environment (if activated):
 mkdir /var/named/chroot/usr/lib64/named
 named-checkconf -t /var/named/chroot/ etc/named.conf
 
-# check backward/reverse zone file
+# Validate the reverse zone file
 named-checkzone 127.0.0.1 /var/named/2.10.10.in-addr.arpa.zone
 
-# check forwared zone file
+# Validate the forward zone file
 named-checkzone dnssrv /var/named/lab.com.zone
 ```
 
-## Step-8:  Enable Chroot Environment
-Enable chroot environment to run bind in a jail environment.
+---
 
-```bash 
-# check the chroot 
+## Step-8: Enable Chroot Environment
+
+Running Bind inside a chroot jail improves security by isolating the process from the rest of the system.
+
+```bash
+# Check current chroot mounts
 mount | grep chroot
 
-# Enable chroot 
+# Enable the chroot environment
 /usr/libexec/setup-named-chroot.sh /var/named/chroot on
 
-# check chroot if enabled 
+# Confirm chroot is active
 mount | grep chroot
 
-# start named-chroot service
+# Start the chroot-enabled named service
 systemctl start named-chroot
 systemctl status named-chroot
 ```
 
+---
+
 ## Step-9: Allow DNS on Firewall
 
-Allow the Incoming Firewall TCP/UDP port 53
+Open TCP and UDP port 53 to allow DNS traffic through the firewall.
 
 ```bash
-# check if ports are listening 
+# Verify the DNS port is listening
 ss -anl | grep ":53 "
 
-# add port 53 udp/tcp to firewall
-firewall-cmd --add-port=53/udp --permanent
+# Allow port 53 on TCP and UDP (persistent)
+firewall-cmd --add-port=53/tcp --add-port=53/udp --permanent
 
-# List ports 
-firewall-cmd --list-ports
-
-# Apply the changes 
+# Apply the changes
 firewall-cmd --reload
 
-# List ports 
+# Confirm the ports are listed
 firewall-cmd --list-ports
 ```
 
-## Step-10: Put DNS in action
+---
+
+## Step-10: Put DNS in Action
+
+Point clients to the new DNS server.
+
+**On the DNS server (Linux):**
 
 ```bash
-# on DNS server locally add below to resolv.conf
 vim /etc/resolv.conf
+
+# Add:
 nameserver 10.10.2.134
-
-# On windows add DNS to network adapter IPv4
-10.10.2.134
-
-# show advanced TCP/IP settings append DNS suffix
-lab.com 
 ```
+
+**On Windows clients:**
+
+1. Open network adapter properties > IPv4 settings
+2. Set **Preferred DNS**: `10.10.2.134`
+3. In **Advanced TCP/IP Settings**, append DNS suffix: `lab.com`
+
+---
 
 ## Step-11: Add A Record
 
+Add a new host record to both the forward and reverse zone files.
+
 ```bash
-# Open zone file to edit 
+# Add to the forward zone
 vim /var/named/lab.com.zone
 
-# add below record 
+# Append:
 win-sqldb01     IN A    10.10.2.131
 
-# Open Reverse zone file to edit 
+
+# Add to the reverse zone
 vim /var/named/2.10.10.in-addr.arpa.zone
 
-# add below record 
-win-sqldb01     IN A    10.10.2.131
+# Append:
+131             IN PTR  win-sqldb01.lab.com.
 
-# restart the server 
+
+# Restart the DNS service to apply changes
 systemctl restart named-chroot
 
-# Test from both DNS and Windows Server sides
+
+# Test forward and reverse resolution
 nslookup win-sqldb01
 nslookup 10.10.2.131
 ```
 
+---
+
 ## Step-12: Start/Stop DNS
 
-```bash
-## Stop Service
+**Stop the service:**
 
-# stop service
+```bash
 systemctl stop named-chroot
 systemctl status named-chroot
 
-# disable the chroot jail env
+# Disable the chroot jail environment
 /usr/libexec/setup-named-chroot.sh /var/named/chroot off
 mount | grep chroot
+```
 
-##  Start Service 
+**Start the service:**
 
-# enable chroot jail env 
+```bash
+# Re-enable the chroot jail environment
 /usr/libexec/setup-named-chroot.sh /var/named/chroot on
 mount | grep chroot
 
-# Start service
+# Start the service
 systemctl start named-chroot
 systemctl status named-chroot
 ```
 
 
-
+[def]: attachments/Pasted%20image%2020220919181305.png

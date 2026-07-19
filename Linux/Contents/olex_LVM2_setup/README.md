@@ -1,426 +1,680 @@
 # LVM2 (Logical Volume Manager)
 
+## Table of Contents
 
+- [Introduction](#introduction)
+- [Why Use LVM](#why-use-lvm)
+- [LVM Building Blocks](#lvm-building-blocks)
+- [Lab Notes](#lab-notes)
+- [Create PV, VG, and LV](#create-pv-vg-and-lv)
+- [Extend a VG and LV](#extend-a-vg-and-lv)
+- [Shrink a Logical Volume](#shrink-a-logical-volume)
+- [Migrate Data Between Physical Volumes](#migrate-data-between-physical-volumes)
+- [Remove PV, VG, and LV](#remove-pv-vg-and-lv)
+- [Useful Verification Commands](#useful-verification-commands)
+- [Encrypt a Logical Volume (LUKS)](#encrypt-a-logical-volume-luks)
 
-## 1- What is LVM
+---
 
-**Logical Volume Manager** (**LVM**) is a device mapper framework that provides logical volume management for the Linux kernel.  Most modern Linux distributions are LVM-aware to the point of being able to have their root file systems on a logical volume. The Logical Volume Manager (LVM) provides tools to create virtual block devices from physical devices.  Virtual devices may be easier to manage than physical devices, and can have capabilities beyond what the physical devices provide themselves.  A Volume Group (VG) is a collection of one or more physical devices, each called a Physical Volume (PV).  A Logical Volume (LV) is avirtual block device that can be used by the system or applications.  Each block of data in an LV is stored on one or more PV in the VG, according to algorithms implemented by Device Mapper (DM) in the kernel.
+## Introduction
 
+**LVM** stands for **Logical Volume Manager**. It is a Linux storage management layer that sits between physical disks and filesystems.
 
+Instead of allocating storage directly from a fixed partition, LVM lets you:
 
+- create storage pools from one or more disks
+- carve those pools into logical volumes
+- resize storage more easily as requirements change
 
-![image-20220306192850910](assets/image-20220306192850910.png)
+Most modern Linux distributions support LVM natively, including root filesystems hosted on logical volumes.
 
+![LVM Diagram](assets/image-20220306192850910.png)
 
+---
 
-## 2- Why We need LVM?
+## Why Use LVM
 
+LVM is useful when you want storage that is easier to manage than traditional static partitions.
 
+### Main advantages
 
-The biggest advantage of LVM is that both logical and physical  volumes can be created, deleted and resized online, without any  restarts.
+- **Flexibility:** Extend or reduce storage with fewer limitations than standard partitions.
+- **Scalability:** Add new disks to an existing volume group when capacity grows.
+- **Simplified management:** Combine multiple disks into a single storage pool.
+- **Migration support:** Move data between physical volumes with minimal service disruption.
+- **Snapshot capability:** Create point-in-time snapshots for backup or testing workflows.
 
-Logical volumes can also be resized dynamically, so you can start for example with a small partition and configure it to expand as data is  written on it.
+> LVM operations can be destructive if performed incorrectly. Test each procedure in a lab before using it on a production system.
 
-Any number of disks and partitions can be unified into a big one, or a single physical disk can be quickly split into many partitions of any  size.
+---
 
-In addition, LVM allows the creation of instant logical volume  snapshots while the operating system is running and supports advanced  encryption features. 
+## LVM Building Blocks
 
-Besides that, LVM gives the system administrator much more flexibility in allocating storage to applications and users.   the main advantages of the LVM are: 
+| Component | Meaning | Description |
+|----------|---------|-------------|
+| `PV` | Physical Volume | A disk or partition initialized for LVM use |
+| `VG` | Volume Group | A storage pool made from one or more PVs |
+| `LV` | Logical Volume | A virtual block device created from a VG |
+| `FS` | Filesystem | The filesystem created on top of an LV, such as `ext4` or `xfs` |
 
-* Flexibility: you can extend,shrink resize volumes as per your business requirements .
-* Easy to Migrate: Allow you to migration to different storage with simple command and few steps.
-* Scalability: add more physical disks and scall the space if that required after few years is an easy task using lvm.
+The usual flow is:
 
- 
+1. Prepare a disk or partition.
+2. Convert it into a **PV**.
+3. Add the PV to a **VG**.
+4. Create one or more **LVs** from the VG.
+5. Create a filesystem on the LV and mount it.
 
-## 3- LVM Operations
+---
 
-Here I will try to cover the most LVM Administration scenarios which can mimic real life situations.  
+## Lab Notes
 
+The examples in this guide use names like:
 
-> Disclaimer: Please don't implement those scenarios direct to the Production system, try to do it first on testing environemt.
+- VG: `data_vg`
+- LV: `data_lv`
+- Additional LV: `lv_log` or `log_lv`
+- Mount points: `/data` and `/log`
 
-
-
-### LVM - PV VG LV Creation 
-
-Create Adding PV VG LV
+Before making changes, verify the current storage layout:
 
 ```bash
-# List Disks 
-lsblk | grep -i 'sd[a-z]'
-
-# list available disk
-lvmdiskscan | grep -v loop
-
-# check the pvs
+lsblk
 pvs
-
-# Format the Disks 
-fdisk /dev/sdb # create sdb1 and sdb2
-fdisk /dev/sdc # create sdc1
-
-# create pv 
-pvcreate /dev/sdb1 /dev/sdc1
-
-#check vgs 
-vgs 
-
-# create vg
-vgcreate data_vg /dev/sdb1 /dev/sdc1
-
-
-# create lv 
-lvcreate data_vg -n data_lv -L 2G
-
-# Make FS 
-mkfs.ext4 /dev/mapper/data_vg-data_lv
-
-# Create lv remaining space 
-lvcreate data_vg -n lv_log -l 100%FREE
-
-# make fs 
-mkfs.ext4 /dev/mapper/data_vg-lv_log
-
-# mk dirs 
-mkdir /data /log
-
-# mount 
-mount /dev/mapper/data_vg-lv_log /log
-mount /dev/mapper/data_vg-data_lv /data
+vgs
+lvs
+df -h
+mount | grep -E 'data|log'
 ```
 
-### 3.2- LVM - VG LV Extend Operation
+---
 
-Extend VG amd LV to have more space 
+## Create PV, VG, and LV
 
->The difference is that **lvextend can only increase the size of a volume, whereas lvresize can increase or reduce it**. This makes lvresize more powerful but more dangerous.
+This section creates a new volume group and two logical volumes.
+
+### 1. Review available disks
 
 ```bash
-
-# Check pv
+lsblk | grep -i 'sd[a-z]'
+lvmdiskscan | grep -v loop
 pvs
+```
 
-# check the vg
-vgs 
+### 2. Partition the disks
 
-# check the lvs
-lvs 
+Example:
 
+```bash
+fdisk /dev/sdb   # create /dev/sdb1 and /dev/sdb2
+fdisk /dev/sdc   # create /dev/sdc1
+```
 
-# check if resize_inode options is active 
+### 3. Create physical volumes
 
+```bash
+pvcreate /dev/sdb1 /dev/sdc1
+pvs
+```
+
+### 4. Create a volume group
+
+```bash
+vgcreate data_vg /dev/sdb1 /dev/sdc1
+vgs
+```
+
+### 5. Create logical volumes
+
+Create a 2 GB LV:
+
+```bash
+lvcreate -L 2G -n data_lv data_vg
+```
+
+Create another LV using the remaining free space:
+
+```bash
+lvcreate -l 100%FREE -n lv_log data_vg
+```
+
+### 6. Create filesystems
+
+```bash
+mkfs.ext4 /dev/mapper/data_vg-data_lv
+mkfs.ext4 /dev/mapper/data_vg-lv_log
+```
+
+### 7. Create mount points and mount the LVs
+
+```bash
+mkdir /data /log
+mount /dev/mapper/data_vg-data_lv /data
+mount /dev/mapper/data_vg-lv_log /log
+```
+
+---
+
+## Extend a VG and LV
+
+Use this workflow when you need to add capacity to an existing logical volume.
+
+### Notes
+
+- `lvextend` only increases LV size.
+- `lvresize` can increase or reduce LV size.
+- For `ext4`, you can often resize the filesystem online when extending.
+
+### 1. Check the current state
+
+```bash
+pvs
+vgs
+lvs
 tune2fs -l /dev/data_vg/data_lv | grep resize_inode
-
-# check available disks 
 lvmdiskscan | grep -v loop
 lsblk | grep -v loop
-
-# create PV 
-pvcreate /dev/sdb2
-
-# Check pv
-pvs
-
-# add pv to vg
-vgextend data_vg /dev/sdb2
-
-# Check pv
-pvs
-
-# check the vg
-vgs 
-
-
-# check the mount
 mount | grep data_lv
-
-# fsck
- fsck -N /dev/mapper/data_vg-data_lv
-
-# check current lv size 
-lvs 
-df -h | grep -v "tmpfs\|loop" | grep data_lv
-
-# extend lv using automatic way 
-lvresize --resizefs /dev/mapper/data_vg-data_lv -L +1G
-
-# check the vg
-vgs 
-
-# check the lvs
-lvs 
-
-# extend lv using manual way 
-lvextend /dev/mapper/data_vg-data_lv -L 4G
-
-# check current lv size 
-lvs 
-df -h | grep -v "tmpfs\|loop" | grep data_lv
-
-
-# resize to fs
-resize2fs /dev/data_vg/data_lv
-
-# check lvs 
-lvs 
-
-# vgs lvs 
-vgs 
-lvs 
-
-# extend and resize with full size of the VG 
-lvextend /dev/mapper/data_vg-data_lv -l +100%FREE
-# to resize and apply the filesystem resize as well.
-lvresize -r /dev/mapper/data_vg-data_lv -l +100%FREE
-# check 
-vgs 
-lvs 
-df -h | grep -v "tmpfs\|loop" | grep data_lv
-
-# resize to fs
-resize2fs /dev/data_vg/data_lv
-
-# check 
-vgs 
-lvs 
-df -h | grep -v "tmpfs\|loop" | grep data_lv
-
+df -h | grep -v "tmpfs\\|loop" | grep data_lv
 ```
 
-### 3.3- LVM- LV Shrink Operation
-
-In the last Section we have learned how to add more space to VG and LV, so this video will be about, how we can Shrink the LV, the shrinking process is risky task need preparation before you performing it on production env, and the main goal of lvreduce is to free some space to VG. Please to Pay attention for two things, first one is, the LV used space and available space, you need to shrink the freespace amount, don't try to shrink more than the freespace, the second one you need to check the filesystem whether it ext4, xfs or any other filesystems this is important to see how you can perform the shrink operation.
-
-to perform shrink operation you need to understand one think you have two layers first one is the Logical Volume (LV) belongs to lvm, and the second one is os filesystem (FS), that means you need first to shrink the filesystem then you need to reduce or resize the LV, note that  if you reduce the LV without do it first on filesystem, the logical volume (LV)  (FileSystem) FS will be currepted.
-
-EXT4 filesystem not support online shrink  you need to umount the LV first then you can resize the FS then reduce or shrink the LV
-
-XFS filesystem is not supporting shrink operation till now as per the xfs offical site published on 2019. 
-
-
+### 2. Create a new PV and add it to the VG
 
 ```bash
+pvcreate /dev/sdb2
+pvs
+vgextend data_vg /dev/sdb2
+pvs
+vgs
+```
 
-# Before proceed to shrink task 
-# 1- what the FS you have ext4,xfs ..etc.
-# 2- check free space for LV.
-# 3- the size you can give for LV
+### 3. Extend the LV
 
-# ## Shrink the ext4 file system and the LVM LV
+Automatic resize of LV and filesystem:
 
-# check the free space 
-vgs 
+```bash
+lvresize --resizefs -L +1G /dev/mapper/data_vg-data_lv
+```
 
-# check 
-lvs 
+Manual method:
 
+```bash
+lvextend -L 4G /dev/mapper/data_vg-data_lv
+resize2fs /dev/data_vg/data_lv
+```
 
-# check free space 
-df -h | grep -v 'loop\|tmpfs'
+Use all remaining free space:
 
-# check mount 
-mount | grep -i data 
+```bash
+lvextend -l +100%FREE /dev/mapper/data_vg-data_lv
+lvresize -r -l +100%FREE /dev/mapper/data_vg-data_lv
+```
 
+### 4. Verify the result
 
+```bash
+vgs
+lvs
+df -h | grep -v "tmpfs\\|loop" | grep data_lv
+```
 
+---
 
-# umount 
+## Shrink a Logical Volume
+
+Shrinking is more risky than extending. You must understand both layers involved:
+
+- the **filesystem**
+- the **logical volume**
+
+If you reduce the LV before shrinking the filesystem, you can corrupt data.
+
+### Important limitations
+
+- `ext4` can be shrunk, but normally requires the filesystem to be unmounted first.
+- `xfs` does **not** support shrinking.
+
+### Before shrinking
+
+Confirm all of the following:
+
+- the filesystem type
+- the used and free space
+- the target size after shrink
+
+Useful checks:
+
+```bash
+vgs
+lvs
+df -h | grep -v 'loop\\|tmpfs'
+mount | grep -i data
+```
+
+### Method 1: Shrink `ext4` with `lvresize --resizefs`
+
+```bash
 umount /data
-
-#  lvresize provides an automatic resize underlaying 
-filesystem
-# --size option takes the intended new LV size 
-# --resizefs resize the underlaying filesystem
 lvresize --resizefs --size 2G /dev/data_vg/data_lv
-
-#mount 
 mount /dev/mapper/data_vg-data_lv /data
+df -h | grep -v 'loop\\|tmpfs'
+```
 
-# check size
-df -h | grep -v 'loop\|tmpfs'
+### Method 2: Manual shrink
 
-# write dump data 
-dd if=/dev/zero of=/data/test1 bs=3M count=100
+Example for `/dev/mapper/data_vg-log_lv` mounted on `/logs`:
 
-# check space again 
-df -h | grep -v 'loop\|tmpfs'
-
-# lvreduce Manual way 
-
-# check mount 
-mount | grep -v loop 
-
-# check free space 
-# check free space
-df -h | grep -v 'loop\|tmpfs'1
-
-# umount 
-umount /logs 
-
-# shrink fs 
+```bash
+umount /logs
 e2fsck -f /dev/mapper/data_vg-log_lv
 resize2fs /dev/mapper/data_vg-log_lv 2G
-
-# reduce lv 
 lvreduce -L 2G /dev/mapper/data_vg-log_lv
-
-# check lvs 
-lvs data_vg
-
-# check fs 
-e2fsck -f /dev/mapper/data_vg-data_lv
-
-# mount 
 mount /dev/mapper/data_vg-log_lv /logs
-
-# check size
-df -h | grep -v 'loop\|tmpfs'
-
-# write dump data 
-dd if=/dev/zero of=/logs/test1 bs=3M count=100
-
-# check space again 
-df -h | grep -v 'loop\|tmpfs'
-
 ```
 
-### 3.4- LVM- VG Migration
-
-This section will cover the volume group migration. Well, we have two ways for Volume group migration , the first one is using LVM mirroring and the second one is using LVM pvmove command. This video will cover the second way which is pvmove command, also in this video we have two scenarios will be covered, the first one will be re-claim the PV and migrate VG to one partition within the Volume Group (VG) and the second one will be migrate Volume Group (VG) to new hard drive  :
+### Verify after shrink
 
 ```bash
+lvs data_vg
+df -h | grep -v 'loop\\|tmpfs'
+```
 
-# there is many reasons sometime force us to migrate the Volume group on of those reasons we need to reclaim some partitions or to replace a faulty disk, or replace an existing smaller size disk with a large one.
+---
 
-# list all available disks 
-lsblk | grep -v loop 
+## Migrate Data Between Physical Volumes
 
-# vgs gather some stats 
+LVM supports moving extents from one physical volume to another using `pvmove`.
+
+Typical reasons for migration:
+
+- reclaim a disk or partition
+- replace a failing disk
+- move data to a larger disk
+
+### 1. Review current allocation
+
+```bash
+lsblk | grep -v loop
 vgs -o+devices | grep data_vg
-
-
-# lvs check the lv belong to this VG
-lvs -o+devices data_vg 
-
-# check the used space help us to see how log pvmove will take
-df -h | grep -v 'loop\|tmpfs'
+lvs -o+devices data_vg
+df -h | grep -v 'loop\\|tmpfs'
 pvs -o+pv_used
-pvs -o+pv_used| grep -i data_vg
+pvs -o+pv_used | grep -i data_vg
+```
 
-# pvmove to the desired partition 
+### 2. Move data from one PV to another existing PV
+
+```bash
 pvmove /dev/sdb1 /dev/sdc1
 pvmove /dev/sdb2 /dev/sdc1
-
-# check pvs 
 pvs -o+pv_used
-
-# check the lsblk
-lsblk | grep -v loop 
-
-###########
-# Migrate to new added disk 
-###########
-
-# list all available disks 
-lsblk | grep -v loop 
-
-# fdisk the new drive 
-fdisk /dev/sdd
-# n p 1 enter enter t 8e p w
-
-#pvs and vgs 
-vgs 
-pvs 
-
-# create pv 
-pvcreate /dev/sdd1 
-
-# pvs and vgs  
-pvs 
-vgs 
-
-# add PV to VG
-vgextend data_vg /dev/sdd1
-
-# pvs and vgs  
-pvs 
-vgs 
-
-# check 
-pvs -o+pv_used
-
-pvmove /dev/sd[bc][12]
-
-# reduce the vg
-vgreduce data_vg /dev/sd[bc][12]
-
-# check 
-pvs -o+pv_used
-
-
+lsblk | grep -v loop
 ```
 
+### 3. Migrate to a newly added disk
 
-
-### 3.5- LVM- PV VG LV Removal Operations
-
-This secition will cover the removing of PV VG LV, but before we get started, please to be careful, this operation will wipe out all the data from the disks, so please don't perform it on systems that have critical production data or sensitive data, and if its so, please make sure to take a backup of those data before perform the LVM removal operation. With all that being said, lets jump in to the demonstration.
+Partition the new disk first:
 
 ```bash
-#Check the mount points 
-df -h | grep -v 'loop\|tmpfs' | grep data
+fdisk /dev/sdd   # create /dev/sdd1
+```
 
-# check the lv belongs to vg 
- lvs data_vg
- lsblk | grep -v loop 
+Create the PV and extend the VG:
 
-# check if the disk mounted 
+```bash
+pvcreate /dev/sdd1
+pvs
+vgs
+vgextend data_vg /dev/sdd1
+pvs
+vgs
+```
+
+Move data and remove old PVs from the VG:
+
+```bash
+pvmove /dev/sd[bc][12]
+vgreduce data_vg /dev/sd[bc][12]
+pvs -o+pv_used
+```
+
+---
+
+## Remove PV, VG, and LV
+
+This procedure destroys data. Make sure all important data is backed up before continuing.
+
+### 1. Confirm what is mounted
+
+```bash
+df -h | grep -v 'loop\\|tmpfs' | grep data
+lvs data_vg
+lsblk | grep -v loop
 mount | grep data_vg
+```
 
-# umount the disk 
+### 2. Unmount filesystems
+
+```bash
 umount /data /logs
 mount | grep data_vg
+```
 
-# remove lv
+### 3. Remove logical volumes
+
+```bash
 lvs data_vg
-lvremove -f  /dev/data_vg/data_lv /dev/data_vg/log_lv
+lvremove -f /dev/data_vg/data_lv /dev/data_vg/log_lv
 lvs data_vg
+```
 
-# check the lvs belong to the vg
-lsblk | grep -v loop
+### 4. Remove the volume group
 
-# check the vg 
+```bash
 vgs data_vg
-pvs 
-
-# remove vg
-vgremove data_vg
-
-# check vgs 
-vgs 
-
-# check the pvs
 pvs
+vgremove data_vg
+vgs
+```
 
-# remove the pvs 
+### 5. Remove physical volumes
+
+```bash
+pvs
 pvremove /dev/sdb1 /dev/sdb2 /dev/sdc1 /dev/sdd1
+# or:
 pvremove /dev/sd[bcd][12]
-
-# check again pvs 
 pvs
 lsblk | grep -v loop
+```
 
-# delete partitions 
+### 6. Remove disk partitions if required
 
+```bash
 fdisk /dev/sdb
 fdisk /dev/sdc
 fdisk /dev/sdd
-
-# check the disks 
 lsblk | grep -v loop
-
 ```
 
+---
 
+## Useful Verification Commands
 
+Keep these commands handy during LVM administration:
+
+```bash
+lsblk
+lvmdiskscan | grep -v loop
+
+pvs
+vgs
+lvs
+
+vgs -o+devices
+lvs -o+devices
+pvs -o+pv_used
+
+df -h
+mount
+```
+
+---
+
+## Encrypt a Logical Volume (LUKS)
+
+LUKS (Linux Unified Key Setup) is the standard disk encryption layer on Linux. You apply it on top of an existing logical volume before creating a filesystem. At boot, the system reads a keyfile to unlock the LUKS container automatically — no password prompt required.
+
+> **Warning:** Encryption is applied to an **empty** LV. Never run `cryptsetup luksFormat` on an LV that already contains data — it will be destroyed.
+
+### Overview
+
+The setup has three layers:
+
+```
+LVM Logical Volume  (/dev/data_vg/secure_lv)
+        |
+   LUKS container   (cryptsetup)
+        |
+    Filesystem       (ext4 / xfs)
+        |
+    Mount point      (/secure)
+```
+
+Automatic unlock at boot requires two files:
+- `/etc/crypttab` — tells the system which LUKS device to open and which keyfile to use
+- `/etc/fstab` — mounts the unlocked device to a mount point
+
+---
+
+### Prerequisites
+
+Install `cryptsetup` if not already present:
+
+```bash
+# RHEL / Oracle Linux / Fedora
+sudo dnf install -y cryptsetup
+
+# Debian / Ubuntu
+sudo apt install -y cryptsetup
+```
+
+---
+
+### Step 1: Create the Logical Volume
+
+Create a dedicated LV for encrypted data. This example creates a 5 GB LV named `secure_lv` inside the existing `data_vg` volume group.
+
+```bash
+lvcreate -L 5G -n secure_lv data_vg
+lvs data_vg
+```
+
+---
+
+### Step 2: Format the LV with LUKS2
+
+This initializes the LUKS container. You will be prompted to set an **initial passphrase** — this is used temporarily to add the keyfile in the next step.
+
+```bash
+cryptsetup luksFormat --type luks2 /dev/data_vg/secure_lv
+```
+
+Confirm the LUKS header was written:
+
+```bash
+cryptsetup luksDump /dev/data_vg/secure_lv
+```
+
+---
+
+### Step 3: Create a Keyfile
+
+A keyfile is a binary file used in place of a passphrase for automatic unlocking. Store it on the root filesystem with restricted permissions.
+
+```bash
+# Create the directory for keyfiles
+mkdir -p /etc/luks-keys
+chmod 700 /etc/luks-keys
+
+# Generate a 4096-byte random keyfile
+dd if=/dev/urandom of=/etc/luks-keys/secure_lv.key bs=512 count=8
+chmod 600 /etc/luks-keys/secure_lv.key
+```
+
+---
+
+### Step 4: Add the Keyfile to the LUKS Container
+
+LUKS supports up to 32 key slots. Add your keyfile to slot 1 (slot 0 holds the passphrase you set during format).
+
+```bash
+cryptsetup luksAddKey /dev/data_vg/secure_lv /etc/luks-keys/secure_lv.key
+```
+
+Verify both key slots are populated:
+
+```bash
+cryptsetup luksDump /dev/data_vg/secure_lv | grep -i "key slot"
+```
+
+> **Optional:** Once the keyfile is verified to work at boot, you can remove the passphrase from slot 0 to enforce keyfile-only access:
+> ```bash
+> cryptsetup luksKillSlot /dev/data_vg/secure_lv 0
+> ```
+
+---
+
+### Step 5: Open the LUKS Container
+
+Open the container manually for the first time to create the `/dev/mapper` device:
+
+```bash
+cryptsetup luksOpen /dev/data_vg/secure_lv secure_data \
+  --key-file /etc/luks-keys/secure_lv.key
+```
+
+Confirm the mapped device exists:
+
+```bash
+ls -l /dev/mapper/secure_data
+cryptsetup status secure_data
+```
+
+---
+
+### Step 6: Create a Filesystem
+
+```bash
+mkfs.ext4 /dev/mapper/secure_data
+```
+
+---
+
+### Step 7: Mount and Verify
+
+```bash
+mkdir -p /secure
+mount /dev/mapper/secure_data /secure
+df -h /secure
+```
+
+---
+
+### Step 8: Configure /etc/crypttab (Auto-Unlock at Boot)
+
+`/etc/crypttab` tells `systemd` which LUKS device to open at boot and which keyfile to use.
+
+```bash
+vim /etc/crypttab
+```
+
+Add the following line:
+
+```
+# <name>       <device>                              <keyfile>                        <options>
+secure_data     /dev/data_vg/secure_lv               /etc/luks-keys/secure_lv.key     luks
+```
+
+| Field     | Value                              | Description                              |
+|-----------|------------------------------------|------------------------------------------|
+| `name`    | `secure_data`                      | The name of the mapped device under `/dev/mapper/` |
+| `device`  | `/dev/data_vg/secure_lv`           | The underlying LUKS-encrypted LV         |
+| `keyfile` | `/etc/luks-keys/secure_lv.key`     | Path to the keyfile for auto-unlock      |
+| `options` | `luks`                             | Specifies LUKS format                    |
+
+> You can also use the LV's UUID instead of the device path for reliability:
+> ```bash
+> blkid /dev/data_vg/secure_lv
+> # Use the UUID in crypttab:
+> secure_data   UUID=<uuid-here>   /etc/luks-keys/secure_lv.key   luks
+> ```
+
+---
+
+### Step 9: Configure /etc/fstab (Auto-Mount at Boot)
+
+Add an entry to mount the unlocked device after it is opened by `crypttab`.
+
+```bash
+vim /etc/fstab
+```
+
+Add the following line:
+
+```
+# <device>                   <mount point>   <type>   <options>         <dump>  <pass>
+/dev/mapper/secure_data       /secure         ext4     defaults,noatime  0       2
+```
+
+| Field          | Value                   | Description                                              |
+|----------------|-------------------------|----------------------------------------------------------|
+| `device`       | `/dev/mapper/secure_data` | The mapped device name matching `crypttab`             |
+| `mount point`  | `/secure`               | Where to mount the decrypted volume                      |
+| `type`         | `ext4`                  | Filesystem type used when formatting                     |
+| `options`      | `defaults,noatime`      | Standard mount options; `noatime` reduces write overhead |
+| `dump`         | `0`                     | Not included in `dump` backups                           |
+| `pass`         | `2`                     | `fsck` check order (2 = checked after root)              |
+
+---
+
+### Step 10: Test the Full Boot Sequence
+
+Unmount and close the LUKS container, then simulate a clean boot mount:
+
+```bash
+# Unmount
+umount /secure
+
+# Close the LUKS container
+cryptsetup luksClose secure_data
+
+# Re-open using crypttab keyfile (simulates what systemd does at boot)
+cryptsetup luksOpen /dev/data_vg/secure_lv secure_data \
+  --key-file /etc/luks-keys/secure_lv.key
+
+# Re-mount using fstab entry
+mount /secure
+
+# Verify
+df -h /secure
+ls /secure
+```
+
+Or simply reboot and verify the volume is mounted automatically:
+
+```bash
+reboot
+# after login:
+df -h /secure
+lsblk
+```
+
+---
+
+### Quick Reference
+
+```bash
+# Show LUKS header info
+cryptsetup luksDump /dev/data_vg/secure_lv
+
+# List active LUKS mappings
+cryptsetup status secure_data
+
+# Open LUKS container manually with keyfile
+cryptsetup luksOpen /dev/data_vg/secure_lv secure_data \
+  --key-file /etc/luks-keys/secure_lv.key
+
+# Close LUKS container (must unmount first)
+umount /secure
+cryptsetup luksClose secure_data
+
+# Add a new keyfile to an existing LUKS container
+cryptsetup luksAddKey /dev/data_vg/secure_lv /etc/luks-keys/new.key
+
+# Remove a key slot (e.g. remove passphrase from slot 0)
+cryptsetup luksKillSlot /dev/data_vg/secure_lv 0
+
+# Show block device with encryption info
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT
+```
